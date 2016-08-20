@@ -4,7 +4,9 @@
 
 (enable-console-print!)
 
-(defonce app-state (atom {:x 0 :y 84 :up nil :down nil :left nil :right nil}))
+(defonce app-state (atom {:world [{:type :floor :x 0 :y 84}]
+                          :input-keys {:up nil :down nil :left nil :right nil}
+                          :player {:x 0 :y 84}}))
 
 (def stage (r/adapt-react-class js/ReactPIXI.Stage))
 (def text (r/adapt-react-class js/ReactPIXI.Text))
@@ -23,13 +25,13 @@
 
 (defn key-event [e v]
   (if-let [input (input-map (.-keyCode e))]
-    (swap! app-state assoc input v)))
+    (swap! app-state assoc-in [:input-keys input] v)))
 
 (defn input-loop []
   (.requestAnimationFrame js/window input-loop)
-  (let [{:keys [left right]} @app-state]
-    (if left (swap! app-state update :x dec))
-    (if right (swap! app-state update :x inc))))
+  (let [{:keys [left right]} (:input-keys @app-state)]
+    (if left (swap! app-state update-in [:player :x] dec))
+    (if right (swap! app-state update-in [:player :x] inc))))
 
 (defonce listeners
   [(.addEventListener js/window "keydown" #(key-event % true))
@@ -37,7 +39,7 @@
    (input-loop)])
 
 (defn root []
-  (let [{:keys [x y]} @app-state]
+  (let [{:keys [x y]} (:player @app-state)]
     [stage {:width (- (.-innerWidth js/window) 5)
            :height (- (.-innerHeight js/window) 5)
            :backgroundcolor 0xffffff
