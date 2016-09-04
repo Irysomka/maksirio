@@ -1,5 +1,5 @@
 (ns maksirio.core
-  (:require [maksirio.sprites :as sprites :refer [mario-sprite floor-sprite]]))
+  (:require [maksirio.draw :as draw :refer [world]]))
 
 (enable-console-print!)
 
@@ -60,38 +60,11 @@
    (generate-world)
    (.appendChild (.getElementById js/document "app") (.-view renderer))])
 
-(defn draw-world []
-  (let [stage (js/PIXI.Container.)
-        grid (js/PIXI.Graphics.)
-        {:keys [x y]} (:player @app-state)
-        player (js/PIXI.Sprite. sprites/mario-sprite)]
-
-    (doseq [x (map #(* 100 %) (range 10))
-            y (map #(* 100 %) (range 10))]
-      (doto grid
-        (.lineStyle 0.2 0xCCCCCC 1)
-        (.drawRect x y (+ x 100) (+ y 100))))
-    (.addChild stage grid)
-
-    (set! (.-position stage) (js/PIXI.Point. 0 (/ (.-height renderer) (.-resolution renderer))))
-    (set! (.-scale stage) (js/PIXI.Point. 2 -2))
-
-    (set! (.-x player) x)
-    (set! (.-y player) y)
-    (.addChild stage player)
-    (doall (map
-            #(let [{:keys [x y]} %
-                   floor (js/PIXI.Sprite. sprites/floor-sprite)]
-               (set! (.-x floor) x)
-               (set! (.-y floor) y)
-               (.addChild stage floor))
-            (filter #(= :floor (:type %)) (:world @app-state))))
-    (.render renderer stage)))
-
 (defn main-loop []
   (.requestAnimationFrame js/window main-loop)
   (process-input)
-  (draw-world))
+  (draw/world @app-state renderer))
+
 (defonce init-main-loop
   (.requestAnimationFrame js/window main-loop))
 
