@@ -1,4 +1,6 @@
-(ns maksirio.core)
+(ns maksirio.core
+  (:require [maksirio.sprites :as sprites :refer [mario-sprite floor-sprite]]))
+
 (enable-console-print!)
 
 (defonce app-state (atom {:world []
@@ -14,22 +16,13 @@
                         "resolution" 1
                         "clearBeforeRender" true}))
 
-(defonce mario-spritesheet
-  (.fromImage js/PIXI.Texture "images/mario_sprites.gif" ))
-
-(defonce mario-sprite
-  (js/PIXI.Texture. mario-spritesheet (js/PIXI.Rectangle. 23 507 13 16)))
-
-(defonce floor-sprite
-  (js/PIXI.Texture. mario-spritesheet (js/PIXI.Rectangle. 373 124 16 16)))
-
 (defonce input-map {37 :left 39 :right 32 :jump})
 
 (defn key-event [e v]
   (if-let [input (input-map (.-keyCode e))]
     (swap! app-state assoc-in [:input-keys input] v)))
 
-(defn input-loop []
+(defn process-input []
   (let [{{:keys [left right jump]} :input-keys
          {:keys [dy y]} :player} @app-state]
     (if left (swap! app-state update-in [:player :x] #(- % 1.7)))
@@ -61,14 +54,15 @@
 (defn draw-world []
   (let [stage (js/PIXI.Container.)
         {:keys [x y]} (:player @app-state)
-        player (js/PIXI.Sprite. mario-sprite)]
+        player (js/PIXI.Sprite. sprites/mario-sprite)]
     (set! (.-scale stage) (js/PIXI.Point. 2 2))
+
     (set! (.-x player) x)
     (set! (.-y player) y)
     (.addChild stage player)
     (doall (map
             #(let [{:keys [x y]} %
-                   floor (js/PIXI.Sprite. floor-sprite)]
+                   floor (js/PIXI.Sprite. sprites/floor-sprite)]
                (set! (.-x floor) x)
                (set! (.-y floor) y)
                (.addChild stage floor))
@@ -77,7 +71,7 @@
 
 (defn main-loop []
   (.requestAnimationFrame js/window main-loop)
-  (input-loop)
+  (process-input)
   (draw-world))
 
 (defonce init-main-loop
