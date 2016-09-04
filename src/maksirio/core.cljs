@@ -4,9 +4,9 @@
 
 (enable-console-print!)
 
-(defonce app-state (atom {:world [{:type :floor :x 0 :y 84}]
-                          :input-keys {:up nil :down nil :left nil :right nil}
-                          :player {:x 0 :y 84}}))
+(defonce app-state (atom {:world []
+                          :input-keys {:up nil :down nil :left nil :right nil :jump nil}
+                          :player {:x 0 :y 84 :dy 0}}))
 
 (def stage (r/adapt-react-class js/ReactPIXI.Stage))
 (def text (r/adapt-react-class js/ReactPIXI.Text))
@@ -21,7 +21,7 @@
 (def floor-sprite
   (js/PIXI.Texture. mario-spritesheet (js/PIXI.Rectangle. 373 124 16 16)))
 
-(def input-map {37 :left 39 :right})
+(def input-map {37 :left 39 :right 32 :jump})
 
 (defn key-event [e v]
   (if-let [input (input-map (.-keyCode e))]
@@ -29,14 +29,43 @@
 
 (defn input-loop []
   (.requestAnimationFrame js/window input-loop)
-  (let [{:keys [left right]} (:input-keys @app-state)]
-    (if left (swap! app-state update-in [:player :x] dec))
-    (if right (swap! app-state update-in [:player :x] inc))))
+  (let [{{:keys [left right jump]} :input-keys
+         {:keys [dy y]} :player} @app-state]
+    (if left (swap! app-state update-in [:player :x] #(- % 1.7)))
+    (if right (swap! app-state update-in [:player :x] #(+ % 1.7)))
+    (if (and jump (= 0 dy) (= 84 y)) (swap! app-state update-in [:player :dy] #(+ % 6))))
+
+  (swap! app-state update-in [:player :y] #(- % (get-in @app-state [:player :dy])))
+
+  (swap! app-state update-in [:player :dy] #(- % 0.4))
+
+  (when (>= (get-in @app-state [:player :y]) 84)
+    (swap! app-state assoc-in [:player :dy] 0)
+    (swap! app-state assoc-in [:player :y] 84)
+  ))
+
+(defn generate-world []
+  (doall
+   (for [x (range 100)]
+     (swap! app-state
+            update
+            :world
+            #(conj % {:type :floor :x (* x 16) :y 100})))))
 
 (defonce listeners
   [(.addEventListener js/window "keydown" #(key-event % true))
    (.addEventListener js/window "keyup" #(key-event % false))
-   (input-loop)])
+   (input-loop)
+   (generate-world)])
+
+(defn draw-floor []
+  (map
+   #(let [x (:x %) y (:y %)]
+      [sprite {:x x
+               :y y
+               :texture floor-sprite
+               :key (str "floor-" x)}])
+   (filter #(= :floor (:type %)) (:world @app-state))))
 
 (defn root []
   (let [{:keys [x y]} (:player @app-state)]
@@ -44,12 +73,8 @@
            :height (- (.-innerHeight js/window) 5)
            :backgroundcolor 0xffffff
            :scale (js/PIXI.Point. 2 2)}
-    [sprite {:x x :y y :texture mario-sprite}]
-    (for [x (range 100)]
-      [sprite {:x (* x 16)
-               :y 100
-               :texture floor-sprite
-               :key (str "floor-" x)}])]))
+    (draw-floor)
+    [sprite {:x x :y y :texture mario-sprite}]]))
 
 (r/render-component [root]
                     (. js/document (getElementById "app")))
